@@ -1,0 +1,13 @@
+services:
+  co_optimal_api:
+    image: co_optimal_api:latest
+    build:
+      context: ../
+      dockerfile: ./dockerfiles/Dockerfile.co_optimal
+    command: gunicorn -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000 --workers ${APPLICATION_WORKERS:-1} --threads ${APPLICATION_THREADS:-4} co_optimal.fastapi_application:application --timeout 400 --log-level=${LOG_LEVEL:-info}
+    container_name: co_optimal_api
+    restart: always
+    ports:
+      - ${FASTAPI_APPLICATION_PORT:-8000}:8000
+      
+ 
