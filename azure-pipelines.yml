@@ -1,19 +1,86 @@
-# Starter pipeline
-# Start with a minimal pipeline that you can customize to build and deploy your code.
-# Add steps that build, run tests, deploy, and more:
-# https://aka.ms/yaml
-
 trigger:
-- main
+  - development
+
+pr: none
 
 pool:
-  vmImage: ubuntu-latest
+  vmImage: 'ubuntu-latest'
 
-steps:
-- script: echo Hello, world!
-  displayName: 'Run a one-line script'
+variables:
+  ACR_REPOSITORY: "coop-backend-dev-001"
+  API_VERSION: "1.0.$(Build.BuildId)"
+  PROJECT_VERSION: "1.0.0"
 
-- script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
+stages:
+
+# Optional stage if you have Python tests to run
+- stage: Quality_and_Functional_check
+  displayName: Quality and Functional check
+  jobs:
+    - job: Quality_and_Functional_check
+      displayName: Run Pytest & Lint
+      steps:
+        - task: UsePythonVersion@0
+          inputs:
+            versionSpec: '3.11'
+            addToPath: true
+
+        - script: |
+            curl -sSL https://install.python-poetry.org | python3 -
+            export PATH="$HOME/.local/bin:$PATH"
+            poetry --version
+          displayName: Install Poetry
+
+        - script: |
+            export PATH="$HOME/.local/bin:$PATH"
+            poetry install
+            poetry run pytest
+          displayName: Run Tests with Poetry
+
+# Build Docker image using Poetry inside Dockerfile
+- stage: BUILD
+  displayName: Build Docker Image
+  jobs:
+    - job: Build
+      displayName: Build
+      steps:
+        - task: Docker@2
+          displayName: Build Docker Image
+          inputs:
+            containerRegistry: 'Container Registry Endpoint'
+            repository: $(ACR_REPOSITORY)
+            command: 'build'
+            Dockerfile: 'dockerfiles/Dockerfile.co_optimal'
+            buildContext: '.'
+            tags: |
+              $(API_VERSION)
+              latest
+
+        - task: Docker@2
+          displayName: Push Docker Image
+          inputs:
+            containerRegistry: 'Container Registry Endpoint'
+            repository: $(ACR_REPOSITORY)
+            command: 'push'
+            tags: |
+              $(API_VERSION)
+              latest
+
+# Deploy the image to Azure Container App
+- stage: DEPLOY
+  displayName: Deploy to Container App
+  jobs:
+    - job: Deploy
+      displayName: Deploy
+      steps:
+        - task: AzureContainerApps@1
+          displayName: Deploy to Azure Container App
+          inputs:
+            azureSubscription: 'Azure Service Manager Endpoint'
+            acrName: $(ACR_NAME)
+            acrUsername: $(ACR_NAME)
+            acrPassword: $(ACR_PASSWORD)
+            imageToDeploy: "$(ACR_NAME).azurecr.io/$(ACR_REPOSITORY):$(API_VERSION)"
+            containerAppName: $(CONTAINER_APP_NAME)
+            resourceGroup: $(RG_NAME)
+            targetPort: '8000'
