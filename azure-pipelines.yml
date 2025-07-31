@@ -77,10 +77,10 @@ stages:
           displayName: Deploy to Azure Container App
           inputs:
             azureSubscription: 'Azure Service Manager Endpoint'
-            acrName: $(ACR_NAME)
-            acrUsername: $(ACR_NAME)
-            acrPassword: $(ACR_PASSWORD)
-            imageToDeploy: "$(ACR_NAME).azurecr.io/$(ACR_REPOSITORY):$(API_VERSION)"
-            containerAppName: $(CONTAINER_APP_NAME)
-            resourceGroup: $(RG_NAME)
+            acrName: '$(ACR_NAME)'
+            acrUsername: '$(ACR_NAME)'
+            acrPassword: '$(ACR_PASSWORD)'
+            imageToDeploy: '$(ACR_NAME).azurecr.io/$(ACR_REPOSITORY):$(API_VERSION)'
+            containerAppName: '$(CONTAINER_APP_NAME)'
+            resourceGroup: '$(RG_NAME)'
             targetPort: '8000'
