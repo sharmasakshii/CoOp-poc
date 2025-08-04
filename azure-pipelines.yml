@@ -1,86 +1,37 @@
 trigger:
   - development
 
-pr: none
+variables:
+  - name: PROJECT_VERSION
+    value: "1.0.0"
 
 pool:
-  vmImage: 'ubuntu-latest'
+  vmImage: "ubuntu-latest"
 
-variables:
-  ACR_REPOSITORY: "coop-backend-dev-001"
-  API_VERSION: "1.0.$(Build.BuildId)"
-  PROJECT_VERSION: "1.0.0"
+pr: none
 
 stages:
+  - stage: Build_and_Deploy
+    displayName: Build_and_Deploy
+    jobs:
+      - job: Build_and_Deploy
+        displayName: Build_and_Deploy
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: "20.19.0"
+            displayName: "Install Node.js"
 
-# Optional stage if you have Python tests to run
-- stage: Quality_and_Functional_check
-  displayName: Quality and Functional check
-  jobs:
-    - job: Quality_and_Functional_check
-      displayName: Run Pytest & Lint
-      steps:
-        - task: UsePythonVersion@0
-          inputs:
-            versionSpec: '3.11'
-            addToPath: true
+          - script: |
+              npm install
+              npm run build
+            displayName: "Build App"
 
-        - script: |
-            curl -sSL https://install.python-poetry.org | python3 -
-            export PATH="$HOME/.local/bin:$PATH"
-            poetry --version
-          displayName: Install Poetry
-
-        - script: |
-            export PATH="$HOME/.local/bin:$PATH"
-            poetry install
-            poetry run pytest
-          displayName: Run Tests with Poetry
-
-# Build Docker image using Poetry inside Dockerfile
-- stage: BUILD
-  displayName: Build Docker Image
-  jobs:
-    - job: Build
-      displayName: Build
-      steps:
-        - task: Docker@2
-          displayName: Build Docker Image
-          inputs:
-            containerRegistry: 'Container Registry Endpoint'
-            repository: $(ACR_REPOSITORY)
-            command: 'build'
-            Dockerfile: 'dockerfiles/Dockerfile.co_optimal'
-            buildContext: '.'
-            tags: |
-              $(API_VERSION)
-              latest
-
-        - task: Docker@2
-          displayName: Push Docker Image
-          inputs:
-            containerRegistry: 'Container Registry Endpoint'
-            repository: $(ACR_REPOSITORY)
-            command: 'push'
-            tags: |
-              $(API_VERSION)
-              latest
-
-# Deploy the image to Azure Container App
-- stage: DEPLOY
-  displayName: Deploy to Container App
-  jobs:
-    - job: Deploy
-      displayName: Deploy
-      steps:
-        - task: AzureContainerApps@1
-          displayName: Deploy to Azure Container App
-          inputs:
-            azureSubscription: 'Azure Service Manager Endpoint'
-            acrName: '$(ACR_NAME)'
-            acrUsername: '$(ACR_NAME)'
-            acrPassword: '$(ACR_PASSWORD)'
-            imageToDeploy: '$(ACR_NAME).azurecr.io/$(ACR_REPOSITORY):$(API_VERSION)'
-            containerAppName: '$(CONTAINER_APP_NAME)'
-            resourceGroup: '$(RG_NAME)'
-            targetPort: '8000'
+          - task: AzureStaticWebApp@0
+            inputs:
+              app_location: "/dist"
+              skip_app_build: true
+              skip_api_build: true
+              azure_static_web_apps_api_token: "$(STATIC_WEB_APP_TOKEN)"
+            env:
+              VITE_BACKEND_URL: $(VITE_BACKEND_URL)
